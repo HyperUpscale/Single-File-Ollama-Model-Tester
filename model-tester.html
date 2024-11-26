@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Multi-Model Tester (HTML version)</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+        .dark {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --popover: 222.2 84% 4.9%;
+            --popover-foreground: 210 40% 98%;
+            --primary: 217.2 91.2% 59.8%;
+            --primary-foreground: 222.2 47.4% 11.2%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 224.3 76.3% 48%;
+        }
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+        .input {
+            background-color: hsl(var(--input));
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            color: hsl(var(--foreground));
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        .btn {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 0.8fr 1.2fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .model-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s;
+        }
+        .checkbox-label:hover {
+            background-color: hsl(var(--secondary));
+        }
+        .result-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: hsl(var(--secondary));
+            border-radius: 0.5rem;
+        }
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+            background: hsl(var(--secondary));
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid hsl(var(--secondary));
+            border-radius: 50%;
+            border-top-color: hsl(var(--primary));
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .response-time {
+            font-size: 0.875rem;
+            color: hsl(var(--muted-foreground));
+            margin-top: 0.5rem;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Ollama Multi-Model Tester in single HTML</h1>
+            <p style="color: hsl(var(--muted-foreground));">Test your prompts across multiple Ollama models</p>
+        </div>
+
+        <div class="grid">
+            <!-- Left Column - Input -->
+            <div>
+                <div class="card">
+                    <h2 style="text-align: center; margin-bottom: 1.5rem;">Available Models</h2>
+                    <div id="modelsContainer" class="checkbox-group"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Prompt Source</h2>
+                    <select id="promptSource" class="input">
+                        <option value="custom">Custom Prompt</option>
+                    </select>
+
+                    <textarea id="customPrompt" class="input" placeholder="Enter your custom prompt here..."></textarea>
+
+                    <button id="submitBtn" class="btn" disabled>Generate Responses</button>
+                </div>
+            </div>
+
+            <!-- Right Column - Results -->
+            <div id="resultsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let availableModels = [];
+        let selectedModels = new Set();
+        let promptFiles = [];
+
+        // DOM Elements
+        const modelsContainer = document.getElementById('modelsContainer');
+        const promptSource = document.getElementById('promptSource');
+        const customPrompt = document.getElementById('customPrompt');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultsContainer = document.getElementById('resultsContainer');
+
+        // Fetch available models
+        async function fetchModels() {
+            try {
+                const response = await fetch('http://localhost:11434/api/tags');
+                const data = await response.json();
+                availableModels = data.models || [];
+                renderModels();
+            } catch (error) {
+                console.error('Error fetching models:', error);
+                modelsContainer.innerHTML = '<p style="color: var(--destructive);">Error loading models. Please ensure Ollama is running.</p>';
+            }
+        }
+
+        // Fetch prompt files from the prompts folder
+        async function fetchPromptFiles() {
+            try {
+                // Get list of files from prompts directory
+                const files = [
+                    "1_daily_habits_compound.xml",
+                    "2_goal_setting_smart.xml",
+                    "3_time_management.xml",
+                    "4_stress_management.xml",
+                    "5_communication_skills.xml"
+                ];
+                
+                promptFiles = files.map(file => ({
+                    name: file,
+                    path: `prompts/${file}`
+                }));
+                renderPromptFiles();
+            } catch (error) {
+                console.error('Error loading prompt files:', error);
+            }
+        }
+
+        // Load prompt content from file
+        async function loadPromptContent(filePath) {
+            try {
+                const response = await fetch(filePath);
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                
+                // Try different possible XML paths
+                const possibleTags = ['prompt', 'content', 'text', 'description'];
+                let promptText = '';
+                
+                for (const tag of possibleTags) {
+                    const element = xmlDoc.getElementsByTagName(tag)[0];
+                    if (element && element.textContent.trim().length > 10) {
+                        promptText = element.textContent.trim();
+                        break;
+                    }
+                }
+                
+                if (!promptText) {
+                    promptText = xmlDoc.documentElement.textContent.trim();
+                }
+                
+                return promptText;
+            } catch (error) {
+                console.error('Error loading prompt content:', error);
+                return '';
+            }
+        }
+
+        // Render models checkboxes
+        function renderModels() {
+            const shortModels = availableModels.filter(model => model.name.length <= 20);
+            const longModels = availableModels.filter(model => model.name.length > 20);
+
+            modelsContainer.innerHTML = `
+                <div class="model-column">
+                    <h3 style="color: hsl(var(--muted-foreground)); font-size: 0.875rem; margin-bottom: 0.5rem;"></h3>
+                    ${shortModels.map(modelInfo => `
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="${modelInfo.name}" onchange="handleModelSelection(event)">
+                            ${modelInfo.name}
+                        </label>
+                    `).join('')}
+                </div>
+                <div class="model-column">
+                    <h3 style="color: hsl(var(--muted-foreground)); font-size: 0.875rem; margin-bottom: 0.5rem;"></h3>
+                    ${longModels.map(modelInfo => `
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="${modelInfo.name}" onchange="handleModelSelection(event)">
+                            ${modelInfo.name}
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Render prompt files options
+        function renderPromptFiles() {
+            const options = promptFiles.map(file => `
+                <option value="${file.path}">${file.name}</option>
+            `).join('');
+            promptSource.innerHTML = '<option value="custom">Custom Prompt</option>' + options;
+        }
+
+        // Handle model selection
+        function handleModelSelection(event) {
+            const { value, checked } = event.target;
+            if (checked) {
+                selectedModels.add(value);
+            } else {
+                selectedModels.delete(value);
+            }
+            updateSubmitButton();
+        }
+
+        // Update submit button state
+        function updateSubmitButton() {
+            const hasModels = selectedModels.size > 0;
+            const hasPrompt = customPrompt.value.trim() !== '' || promptSource.value !== 'custom';
+            submitBtn.disabled = !(hasModels && hasPrompt);
+        }
+
+        // Handle form submission
+        async function handleSubmit() {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Generating...';
+            
+            // Clear previous results and show results container
+            resultsContainer.innerHTML = `
+                <div class="card">
+                    <h2>Results</h2>
+                    <div id="responsesList"></div>
+                </div>
+            `;
+            const responsesList = document.getElementById('responsesList');
+            
+            try {
+                let promptText = '';
+                if (promptSource.value === 'custom') {
+                    promptText = customPrompt.value;
+                } else {
+                    promptText = await loadPromptContent(promptSource.value);
+                }
+
+                if (!promptText) {
+                    throw new Error('No prompt text available');
+                }
+
+                const modelArray = Array.from(selectedModels);
+                const shouldUnloadModels = modelArray.length > 1;
+
+                // Create placeholder for each model
+                modelArray.forEach(model => {
+                    responsesList.innerHTML += `
+                        <div id="response-${model.replace(/[^a-zA-Z0-9]/g, '-')}" class="result-card">
+                            <h3>${model}</h3>
+                            <div class="loading-pulse">
+                                <div class="loading-spinner"></div>
+                                Generating response...
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Process each model
+                for (const model of modelArray) {
+                    const startTime = performance.now();
+                    const modelElementId = `response-${model.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    
+                    try {
+                        const requestBody = {
+                            model: model,
+                            prompt: promptText,
+                            stream: false
+                        };
+
+                        if (shouldUnloadModels) {
+                            requestBody.keep_alive = 0;
+                        }
+
+                        const response = await fetch('http://localhost:11434/api/generate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+                        
+                        const data = await response.json();
+                        const endTime = performance.now();
+                        const responseTime = ((endTime - startTime) / 1000).toFixed(2);
+
+                        // Update the placeholder with actual response
+                        document.getElementById(modelElementId).innerHTML = `
+                            <h3>${model}</h3>
+                            <pre class="fade-in" style="white-space: pre-wrap;">${data.response}</pre>
+                            <div class="response-time">Response time: ${responseTime} seconds</div>
+                        `;
+                    } catch (error) {
+                        document.getElementById(modelElementId).innerHTML = `
+                            <h3>${model}</h3>
+                            <pre class="fade-in" style="color: var(--destructive)">Error: ${error.message}</pre>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Error generating responses:', error);
+                resultsContainer.innerHTML = `
+                    <div class="card">
+                        <h2>Error</h2>
+                        <div class="result-card">
+                            <pre style="color: var(--destructive);">${error.message}</pre>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Generate Responses';
+            }
+        }
+
+        // Event listeners
+        promptSource.addEventListener('change', async () => {
+            customPrompt.style.display = promptSource.value === 'custom' ? 'block' : 'none';
+            
+            if (promptSource.value !== 'custom') {
+                const promptText = await loadPromptContent(promptSource.value);
+                customPrompt.value = promptText;
+            }
+            
+            updateSubmitButton();
+        });
+
+        customPrompt.addEventListener('input', updateSubmitButton);
+        submitBtn.addEventListener('click', handleSubmit);
+
+        // Initialize
+        fetchModels();
+        fetchPromptFiles();
+    </script>
+</body>
+</html>
