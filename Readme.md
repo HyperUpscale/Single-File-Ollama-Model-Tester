@@ -27,10 +27,11 @@ A standalone web application for testing and comparing multiple Ollama models si
 
 1. Make sure Ollama is running on your system
 2. Place the `index.html` file in a directory with your `prompts` folder
-3. Serve the directory using a local HTTP server, for example:
-   ```bash
-   python3 -m http.server 8000
-   ```
+3. Serve the file using any HTTP server, for example:
+   
+```bash
+   python -m http.server 8000
+```
 4. Open your browser and navigate to `http://localhost:8000`
 
 ## Usage
